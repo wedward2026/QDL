@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "qdl": {
+      "command": "python3",
+      "args": ["-m", "qdl_mcp_server"],
+      "cwd": "/home/user/QDL"
+    }
+  }
+}

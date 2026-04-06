@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QDL Research Explorer</title>
+    <style>
+        :root {
+            --primary: #1a4d6e;
+            --primary-light: #2a7ab5;
+            --accent: #c49a3c;
+            --bg: #faf8f5;
+            --card-bg: #ffffff;
+            --text: #2c2c2c;
+            --text-light: #666;
+            --border: #e0ddd8;
+            --shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Georgia', 'Times New Roman', serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        header {
+            background: var(--primary);
+            color: white;
+            padding: 2rem 1rem;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 1.8rem;
+            font-weight: 400;
+            letter-spacing: 0.05em;
+        }
+
+        header p {
+            margin-top: 0.5rem;
+            opacity: 0.85;
+            font-size: 0.95rem;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1.5rem 1rem;
+        }
+
+        /* Search bar */
+        .search-section {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            margin-bottom: 1.5rem;
+        }
+
+        .search-row {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .search-row input[type="text"] {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            font-size: 1rem;
+            font-family: inherit;
+            border: 2px solid var(--border);
+            border-radius: 6px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .search-row input[type="text"]:focus {
+            border-color: var(--primary-light);
+        }
+
+        .search-row button {
+            padding: 0.75rem 1.75rem;
+            font-size: 1rem;
+            font-family: inherit;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+
+        .search-row button:hover { background: var(--primary-light); }
+        .search-row button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .search-hints {
+            margin-top: 0.75rem;
+            font-size: 0.85rem;
+            color: var(--text-light);
+        }
+
+        .search-hints span {
+            display: inline-block;
+            background: #f0ede8;
+            padding: 0.15rem 0.5rem;
+            border-radius: 3px;
+            margin: 0.15rem 0.25rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .search-hints span:hover { background: #e0ddd5; }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 0;
+        }
+
+        .tab-btn {
+            padding: 0.6rem 1.25rem;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-bottom: none;
+            border-radius: 6px 6px 0 0;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.9rem;
+            color: var(--text-light);
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            background: var(--card-bg);
+            color: var(--primary);
+            font-weight: 600;
+            border-color: var(--border);
+        }
+
+        /* Results area */
+        .results-panel {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 0 8px 8px 8px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            min-height: 200px;
+        }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Status messages */
+        .status {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-light);
+            font-style: italic;
+        }
+
+        .status.error { color: #b33; }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 0.5rem;
+            vertical-align: middle;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Search results */
+        .result-summary {
+            font-size: 0.9rem;
+            color: var(--text-light);
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .result-item {
+            padding: 1rem 0;
+            border-bottom: 1px solid #f0ede8;
+        }
+
+        .result-item:last-child { border-bottom: none; }
+
+        .result-item h3 {
+            font-size: 1.05rem;
+            font-weight: 600;
+            margin-bottom: 0.3rem;
+        }
+
+        .result-item h3 a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        .result-item h3 a:hover { text-decoration: underline; }
+
+        .result-meta {
+            font-size: 0.8rem;
+            color: var(--text-light);
+            margin-bottom: 0.4rem;
+        }
+
+        .result-meta .badge {
+            display: inline-block;
+            background: #f0ede8;
+            padding: 0.1rem 0.4rem;
+            border-radius: 3px;
+            margin-right: 0.5rem;
+        }
+
+        .result-snippet {
+            font-size: 0.9rem;
+            color: #444;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 1.25rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .pagination button {
+            padding: 0.4rem 1rem;
+            font-family: inherit;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pagination button:hover { background: #e8e5e0; }
+        .pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* Manifest viewer */
+        .manifest-input {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .manifest-input input {
+            flex: 1;
+            padding: 0.6rem 0.8rem;
+            font-family: inherit;
+            font-size: 0.9rem;
+            border: 2px solid var(--border);
+            border-radius: 6px;
+            outline: none;
+        }
+
+        .manifest-input input:focus { border-color: var(--primary-light); }
+
+        .manifest-input button {
+            padding: 0.6rem 1.25rem;
+            font-family: inherit;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .metadata-grid {
+            display: grid;
+            grid-template-columns: 160px 1fr;
+            gap: 0.4rem 1rem;
+            font-size: 0.9rem;
+        }
+
+        .metadata-grid dt {
+            font-weight: 600;
+            color: var(--primary);
+            padding: 0.3rem 0;
+        }
+
+        .metadata-grid dd {
+            padding: 0.3rem 0;
+            border-bottom: 1px solid #f5f3f0;
+        }
+
+        .pages-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .page-thumb {
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--text-light);
+        }
+
+        .page-thumb img {
+            width: 100%;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .page-thumb img:hover { transform: scale(1.03); }
+
+        /* Lightbox */
+        .lightbox {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.85);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .lightbox.open { display: flex; }
+
+        .lightbox img {
+            max-width: 90vw;
+            max-height: 90vh;
+            border-radius: 4px;
+        }
+
+        footer {
+            text-align: center;
+            padding: 2rem 1rem;
+            font-size: 0.8rem;
+            color: var(--text-light);
+        }
+
+        footer a { color: var(--primary-light); }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>QDL Research Explorer</h1>
+    <p>Search the Qatar Digital Library &mdash; 2 million+ digitized pages of Gulf &amp; Middle East history</p>
+</header>
+
+<div class="container">
+    <div class="search-section">
+        <div class="search-row">
+            <input type="text" id="searchInput" placeholder="Search the Qatar Digital Library..."
+                   aria-label="Search query">
+            <button id="searchBtn" onclick="doSearch()">Search</button>
+        </div>
+        <div class="search-hints">
+            Try: <span onclick="quickSearch(this)">Treaty of Seeb</span>
+            <span onclick="quickSearch(this)">Oman oil concession</span>
+            <span onclick="quickSearch(this)">Muscat political agent</span>
+            <span onclick="quickSearch(this)">Sultan Said bin Taimur</span>
+        </div>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-btn active" data-tab="search-tab" onclick="switchTab(this)">Search Results</button>
+        <button class="tab-btn" data-tab="manifest-tab" onclick="switchTab(this)">Document Viewer</button>
+    </div>
+
+    <div class="results-panel">
+        <div id="search-tab" class="tab-content active">
+            <div id="searchStatus" class="status">
+                Enter a search query above to explore QDL's archive.
+            </div>
+            <div id="searchResults" style="display:none"></div>
+        </div>
+
+        <div id="manifest-tab" class="tab-content">
+            <div class="manifest-input">
+                <input type="text" id="manifestInput"
+                       placeholder="Enter record ID, e.g. 81055/vdc_100023575853.0x000001"
+                       aria-label="Record ID">
+                <button onclick="loadManifest()">Load</button>
+            </div>
+            <div id="manifestStatus" class="status">
+                Enter a record ID to view document metadata and pages.
+                <br><br>
+                You can find record IDs in search results above &mdash; click "View Document" on any result.
+            </div>
+            <div id="manifestContent" style="display:none"></div>
+        </div>
+    </div>
+</div>
+
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+    <img id="lightboxImg" src="" alt="Full size page">
+</div>
+
+<footer>
+    Data from the <a href="https://www.qdl.qa" target="_blank" rel="noopener">Qatar Digital Library</a>
+    via IIIF APIs. Content is freely accessible and provided by Qatar National Library &amp; the British Library.
+</footer>
+
+<script>
+const QDL_BASE = 'https://www.qdl.qa';
+const IIIF_IMG = 'https://iiif.qdl.qa/iiif/images';
+const CORS_PROXY = 'https://corsproxy.io/?url=';
+
+let currentQuery = '';
+let currentPage = 0;
+
+// --- Helpers ---
+
+function proxyUrl(url) {
+    // QDL doesn't set CORS headers, so we use a public CORS proxy.
+    // Users can self-host a proxy or run locally to avoid this.
+    return CORS_PROXY + encodeURIComponent(url);
+}
+
+async function fetchQDL(url, expectJson = false) {
+    const resp = await fetch(proxyUrl(url));
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+    return expectJson ? resp.json() : resp.text();
+}
+
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+// --- Search ---
+
+function quickSearch(el) {
+    document.getElementById('searchInput').value = el.textContent;
+    doSearch();
+}
+
+async function doSearch(page = 0) {
+    const query = document.getElementById('searchInput').value.trim();
+    if (!query) return;
+
+    currentQuery = query;
+    currentPage = page;
+
+    const statusEl = document.getElementById('searchStatus');
+    const resultsEl = document.getElementById('searchResults');
+
+    statusEl.style.display = 'block';
+    statusEl.className = 'status';
+    statusEl.innerHTML = '<span class="spinner"></span> Searching QDL...';
+    resultsEl.style.display = 'none';
+
+    try {
+        let url = `${QDL_BASE}/en/search/site/${encodeURIComponent(query)}`;
+        if (page > 0) url += `?page=${page}`;
+
+        const html = await fetchQDL(url);
+        const results = parseSearchHTML(html);
+        renderResults(results);
+    } catch (err) {
+        statusEl.className = 'status error';
+        statusEl.textContent = `Search failed: ${err.message}. If this persists, try visiting QDL directly.`;
+    }
+}
+
+function parseSearchHTML(html) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+
+    const results = [];
+
+    // QDL search results are in <li> elements within search results list
+    const items = doc.querySelectorAll('ol.search-results li, li.search-result, .view-content .views-row, .search-result');
+
+    items.forEach(item => {
+        const linkEl = item.querySelector('h3 a, h2 a, .title a, a');
+        if (!linkEl) return;
+
+        const title = linkEl.textContent.trim();
+        let href = linkEl.getAttribute('href') || '';
+        if (href && !href.startsWith('http')) href = QDL_BASE + href;
+
+        const snippetEl = item.querySelector('.search-snippet, .search-result__snippet, p');
+        const snippet = snippetEl ? snippetEl.textContent.trim() : '';
+
+        const dateEl = item.querySelector('.date, time');
+        const date = dateEl ? (dateEl.getAttribute('datetime') || dateEl.textContent.trim()) : '';
+
+        const typeEl = item.querySelector('.search-result__type, .content-type');
+        const contentType = typeEl ? typeEl.textContent.trim() : '';
+
+        // Extract VDC ID
+        const vdcMatch = href.match(/\/archive\/([\d]+\/vdc_[\w.]+)/);
+        const vdcId = vdcMatch ? vdcMatch[1] : '';
+
+        results.push({ title, url: href, vdcId, snippet, date, contentType });
+    });
+
+    // Total count
+    let total = null;
+    const headings = doc.querySelectorAll('h2, h3, div, p, span');
+    for (const el of headings) {
+        const m = el.textContent.match(/([\d,]+)\s+results?/i);
+        if (m) { total = parseInt(m[1].replace(/,/g, '')); break; }
+    }
+
+    // Pagination
+    const nextLink = doc.querySelector('li.pager-next a, li.pager__item--next a');
+    const hasNext = !!nextLink;
+
+    return { total, results, hasNext };
+}
+
+function renderResults(data) {
+    const statusEl = document.getElementById('searchStatus');
+    const resultsEl = document.getElementById('searchResults');
+
+    if (data.results.length === 0) {
+        statusEl.style.display = 'block';
+        statusEl.className = 'status';
+        statusEl.textContent = 'No results found. Try different search terms.';
+        resultsEl.style.display = 'none';
+        return;
+    }
+
+    statusEl.style.display = 'none';
+    resultsEl.style.display = 'block';
+
+    let html = '';
+
+    if (data.total) {
+        html += `<div class="result-summary">About ${data.total.toLocaleString()} results (page ${currentPage + 1})</div>`;
+    }
+
+    data.results.forEach(r => {
+        html += `<div class="result-item">`;
+        html += `<h3><a href="${escapeHtml(r.url)}" target="_blank" rel="noopener">${escapeHtml(r.title)}</a></h3>`;
+
+        let meta = '';
+        if (r.contentType) meta += `<span class="badge">${escapeHtml(r.contentType)}</span>`;
+        if (r.date) meta += escapeHtml(r.date);
+        if (r.vdcId) {
+            meta += ` &mdash; <a href="#" onclick="viewDocument('${escapeHtml(r.vdcId)}'); return false;">View Document</a>`;
+        }
+        if (meta) html += `<div class="result-meta">${meta}</div>`;
+
+        if (r.snippet) html += `<div class="result-snippet">${escapeHtml(r.snippet)}</div>`;
+        html += `</div>`;
+    });
+
+    // Pagination
+    html += `<div class="pagination">`;
+    html += `<button onclick="doSearch(${currentPage - 1})" ${currentPage === 0 ? 'disabled' : ''}>Previous</button>`;
+    html += `<button onclick="doSearch(${currentPage + 1})" ${!data.hasNext ? 'disabled' : ''}>Next</button>`;
+    html += `</div>`;
+
+    resultsEl.innerHTML = html;
+}
+
+// --- Document Viewer ---
+
+function viewDocument(vdcId) {
+    document.getElementById('manifestInput').value = vdcId;
+    document.querySelector('[data-tab="manifest-tab"]').click();
+    loadManifest();
+}
+
+async function loadManifest() {
+    const recordId = document.getElementById('manifestInput').value.trim();
+    if (!recordId) return;
+
+    const statusEl = document.getElementById('manifestStatus');
+    const contentEl = document.getElementById('manifestContent');
+
+    statusEl.style.display = 'block';
+    statusEl.className = 'status';
+    statusEl.innerHTML = '<span class="spinner"></span> Loading document...';
+    contentEl.style.display = 'none';
+
+    try {
+        const url = `${QDL_BASE}/en/iiif/${recordId}/manifest`;
+        const manifest = await fetchQDL(url, true);
+        renderManifest(manifest, recordId);
+    } catch (err) {
+        statusEl.className = 'status error';
+        statusEl.textContent = `Failed to load document: ${err.message}`;
+    }
+}
+
+function getLabel(value) {
+    if (typeof value === 'string') return value;
+    if (Array.isArray(value)) return value.map(v => typeof v === 'string' ? v : (v['@value'] || '')).join(' ');
+    if (value && typeof value === 'object') return value['@value'] || JSON.stringify(value);
+    return value ? String(value) : '';
+}
+
+function renderManifest(manifest, recordId) {
+    const statusEl = document.getElementById('manifestStatus');
+    const contentEl = document.getElementById('manifestContent');
+
+    statusEl.style.display = 'none';
+    contentEl.style.display = 'block';
+
+    const label = getLabel(manifest.label);
+    const description = getLabel(manifest.description);
+    const metadata = manifest.metadata || [];
+    const sequences = manifest.sequences || [];
+    const canvases = sequences.length > 0 ? sequences[0].canvases || [] : [];
+
+    let html = `<h2 style="font-size:1.2rem; margin-bottom:0.5rem;">${escapeHtml(label)}</h2>`;
+
+    if (description) {
+        html += `<p style="margin-bottom:1rem; color:#444;">${escapeHtml(description)}</p>`;
+    }
+
+    html += `<p style="font-size:0.85rem; margin-bottom:1rem;">
+        <a href="${QDL_BASE}/en/archive/${escapeHtml(recordId)}" target="_blank" rel="noopener">View on QDL</a>
+        &mdash; ${canvases.length} pages
+    </p>`;
+
+    // Metadata
+    if (metadata.length > 0) {
+        html += '<dl class="metadata-grid">';
+        metadata.forEach(m => {
+            html += `<dt>${escapeHtml(getLabel(m.label))}</dt>`;
+            html += `<dd>${escapeHtml(getLabel(m.value))}</dd>`;
+        });
+        html += '</dl>';
+    }
+
+    // Page thumbnails (first 30)
+    const pagesToShow = canvases.slice(0, 30);
+    if (pagesToShow.length > 0) {
+        html += `<h3 style="margin-top:1.5rem; margin-bottom:0.5rem; font-size:1rem;">Pages</h3>`;
+        html += '<div class="pages-grid">';
+        pagesToShow.forEach((canvas, i) => {
+            const images = canvas.images || [];
+            if (images.length === 0) return;
+
+            const resource = images[0].resource || {};
+            const service = resource.service || {};
+            const serviceId = service['@id'] || '';
+
+            // Build thumbnail URL (200px wide)
+            let thumbUrl = '';
+            let fullUrl = '';
+            if (serviceId) {
+                const imgPath = serviceId.includes('/images/')
+                    ? serviceId.split('/images/')[1]
+                    : serviceId;
+                thumbUrl = `${IIIF_IMG}/${imgPath}/full/200,/0/default.jpg`;
+                fullUrl = `${IIIF_IMG}/${imgPath}/full/1200,/0/default.jpg`;
+            } else if (resource['@id']) {
+                thumbUrl = resource['@id'];
+                fullUrl = resource['@id'];
+            }
+
+            const pageLabel = getLabel(canvas.label) || `Page ${i + 1}`;
+
+            if (thumbUrl) {
+                html += `<div class="page-thumb">
+                    <img src="${escapeHtml(thumbUrl)}" alt="${escapeHtml(pageLabel)}"
+                         loading="lazy" onclick="openLightbox('${escapeHtml(fullUrl)}')">
+                    <div>${escapeHtml(pageLabel)}</div>
+                </div>`;
+            }
+        });
+        html += '</div>';
+
+        if (canvases.length > 30) {
+            html += `<p style="text-align:center; margin-top:1rem; color:var(--text-light); font-size:0.85rem;">
+                Showing first 30 of ${canvases.length} pages.
+                <a href="${QDL_BASE}/en/archive/${escapeHtml(recordId)}" target="_blank">View all on QDL</a>
+            </p>`;
+        }
+    }
+
+    contentEl.innerHTML = html;
+}
+
+// --- Lightbox ---
+
+function openLightbox(url) {
+    document.getElementById('lightboxImg').src = url;
+    document.getElementById('lightbox').classList.add('open');
+}
+
+function closeLightbox() {
+    document.getElementById('lightbox').classList.remove('open');
+    document.getElementById('lightboxImg').src = '';
+}
+
+// --- Tabs ---
+
+function switchTab(btn) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.tab).classList.add('active');
+}
+
+// --- Keyboard shortcut ---
+
+document.getElementById('searchInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doSearch();
+});
+
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeLightbox();
+});
+</script>
+
+</body>
+</html>
