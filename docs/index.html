@@ -318,6 +318,26 @@
 
         .page-thumb img:hover { transform: scale(1.03); }
 
+        .page-thumb.img-error img { display: none; }
+
+        .img-placeholder {
+            width: 100%;
+            min-height: 100px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #f5f3f0;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 0.75rem;
+            color: var(--text-light);
+            padding: 1rem 0.5rem;
+            text-align: center;
+        }
+
+        .img-placeholder a { color: var(--primary-light); }
+
         /* Lightbox */
         .lightbox {
             display: none;
@@ -631,8 +651,11 @@ function renderManifest(manifest, recordId) {
     if (metadata.length > 0) {
         html += '<dl class="metadata-grid">';
         metadata.forEach(m => {
+            const rawVal = getLabel(m.value);
+            // If the value contains HTML tags (e.g. <a href=...>), render it as HTML
+            const isHtml = /<[a-z][\s\S]*>/i.test(rawVal);
             html += `<dt>${escapeHtml(getLabel(m.label))}</dt>`;
-            html += `<dd>${escapeHtml(getLabel(m.value))}</dd>`;
+            html += `<dd>${isHtml ? rawVal : escapeHtml(rawVal)}</dd>`;
         });
         html += '</dl>';
     }
@@ -648,18 +671,19 @@ function renderManifest(manifest, recordId) {
 
             const resource = images[0].resource || {};
             const service = resource.service || {};
-            const serviceId = service['@id'] || '';
+            const serviceId = (service['@id'] || '').replace(/\/+$/, '');
 
-            // Build thumbnail URL (200px wide)
+            // Build IIIF image URLs from service @id or resource @id
             let thumbUrl = '';
             let fullUrl = '';
             if (serviceId) {
-                const imgPath = serviceId.includes('/images/')
-                    ? serviceId.split('/images/')[1]
-                    : serviceId;
-                thumbUrl = `${IIIF_IMG}/${imgPath}/full/200,/0/default.jpg`;
-                fullUrl = `${IIIF_IMG}/${imgPath}/full/1200,/0/default.jpg`;
+                // service @id is typically already a full URL like:
+                // https://iiif.qdl.qa/iiif/images/81055/vdc_.../vdc_...
+                // Just append IIIF Image API parameters directly
+                thumbUrl = `${serviceId}/full/200,/0/default.jpg`;
+                fullUrl = `${serviceId}/full/1200,/0/default.jpg`;
             } else if (resource['@id']) {
+                // resource @id is the direct image URL
                 thumbUrl = resource['@id'];
                 fullUrl = resource['@id'];
             }
@@ -667,9 +691,15 @@ function renderManifest(manifest, recordId) {
             const pageLabel = getLabel(canvas.label) || `Page ${i + 1}`;
 
             if (thumbUrl) {
+                // Log first image URL for debugging
+                if (i === 0) console.log('Sample image URL:', thumbUrl);
+
                 html += `<div class="page-thumb">
                     <img src="${escapeHtml(thumbUrl)}" alt="${escapeHtml(pageLabel)}"
-                         loading="lazy" onclick="openLightbox('${escapeHtml(fullUrl)}')">
+                         loading="lazy"
+                         data-full-url="${escapeHtml(fullUrl)}"
+                         onerror="retryWithProxy(this)"
+                         onclick="openLightbox('${escapeHtml(fullUrl)}')">
                     <div>${escapeHtml(pageLabel)}</div>
                 </div>`;
             }
@@ -685,6 +715,26 @@ function renderManifest(manifest, recordId) {
     }
 
     contentEl.innerHTML = html;
+}
+
+// --- Image loading with fallback ---
+
+function retryWithProxy(img) {
+    // If direct load fails, try through CORS proxy
+    const origSrc = img.dataset.origSrc || img.src;
+    if (origSrc && !origSrc.includes('corsproxy.io')) {
+        img.dataset.origSrc = origSrc;
+        img.src = CORS_PROXY + encodeURIComponent(origSrc);
+        img.onerror = function() {
+            // Both direct and proxy failed — show placeholder
+            this.onerror = null;
+            this.src = '';
+            this.parentElement.classList.add('img-error');
+            const fullUrl = this.dataset.fullUrl || origSrc;
+            this.parentElement.insertAdjacentHTML('afterbegin',
+                `<div class="img-placeholder">Image unavailable<br><a href="${fullUrl}" target="_blank">Open directly</a></div>`);
+        };
+    }
 }
 
 // --- Lightbox ---
